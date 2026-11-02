@@ -20,15 +20,23 @@ namespace Game.Netcode
 
         public void Install()
         {
-            _networkManager.SceneManager.OnLoadEventCompleted += OnLoadEventCompleted;
+            // NetworkManager.SceneManager only exists once networking has actually started, so
+            // that subscription is deferred to OnServerStarted instead of done here.
+            _networkManager.OnServerStarted += OnServerStarted;
             _networkManager.OnClientConnectedCallback += OnClientConnected;
         }
 
         public void Uninstall()
         {
+            _networkManager.OnServerStarted -= OnServerStarted;
             if (_networkManager.SceneManager != null)
                 _networkManager.SceneManager.OnLoadEventCompleted -= OnLoadEventCompleted;
             _networkManager.OnClientConnectedCallback -= OnClientConnected;
+        }
+
+        void OnServerStarted()
+        {
+            _networkManager.SceneManager.OnLoadEventCompleted += OnLoadEventCompleted;
         }
 
         void OnLoadEventCompleted(string sceneName, UnityEngine.SceneManagement.LoadSceneMode mode,
