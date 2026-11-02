@@ -8,8 +8,9 @@ namespace Game.Gameplay.Items
     /// <summary>
     /// Player-side hotkeys for spawn/pickup/drop/throw. Every request is a ServerRpc;
     /// the host (PhysicsItem/ItemSpawner) is the only one that decides whether it
-    /// succeeds. While holding an item this client owns, it drives the item's transform
-    /// toward the hand anchor each frame (see PhysicsItem ownership events).
+    /// succeeds and is the only writer of the item's transform (see PhysicsItem) -
+    /// while holding, this sends the hand anchor's pose each frame for the server to
+    /// apply, instead of writing the item's transform directly.
     /// </summary>
     public class PlayerItemHolder : NetworkBehaviour
     {
@@ -23,9 +24,6 @@ namespace Game.Gameplay.Items
 
         public override void OnNetworkSpawn()
         {
-            PhysicsItem.OwnershipGainedLocally += OnOwnershipGained;
-            PhysicsItem.OwnershipLostLocally += OnOwnershipLost;
-
             if (!IsOwner) return;
 
             _stats = GameServices.Current?.Resolve<IStatsService>();
@@ -37,30 +35,14 @@ namespace Game.Gameplay.Items
             _inputActions.Enable();
         }
 
-        public override void OnNetworkDespawn()
-        {
-            PhysicsItem.OwnershipGainedLocally -= OnOwnershipGained;
-            PhysicsItem.OwnershipLostLocally -= OnOwnershipLost;
-        }
-
-        void OnOwnershipGained(PhysicsItem item)
-        {
-            if (item.OwnerClientId == OwnerClientId && IsOwner) _heldItem = item;
-        }
-
-        void OnOwnershipLost(PhysicsItem item)
-        {
-            if (_heldItem == item) _heldItem = null;
-        }
-
         void Update()
         {
             if (!IsOwner) return;
 
+            _heldItem = FindMyHeldItem();
+
             if (_heldItem != null && _handAnchor != null)
-            {
-                _heldItem.transform.SetPositionAndRotation(_handAnchor.position, _handAnchor.rotation);
-            }
+                UpdateHeldPoseServerRpc(_handAnchor.position, _handAnchor.rotation);
 
             if (_spawn != null && _spawn.WasPressedThisFrame())
                 RequestSpawnItemServerRpc();
@@ -80,6 +62,14 @@ namespace Game.Gameplay.Items
                     _stats?.Increment("items_thrown"); // fired locally, on the throwing client - not routed through the host
                 }
             }
+        }
+
+        PhysicsItem FindMyHeldItem()
+        {
+            foreach (var item in FindObjectsByType<PhysicsItem>(FindObjectsSortMode.None))
+                if (item.IsHeld.Value && item.HolderClientId.Value == OwnerClientId)
+                    return item;
+            return null;
         }
 
         [Rpc(SendTo.Server)]
@@ -106,29 +96,31 @@ namespace Game.Gameplay.Items
         }
 
         [Rpc(SendTo.Server)]
-        void RequestDropServerRpc()
+        void UpdateHeldPoseServerRpc(Vector3 position, Quaternion rotation, RpcParams rpcParams = default)
         {
-            _heldItemServerRef?.ServerRelease();
+            FindServerHeldItem(rpcParams.Receive.SenderClientId)?.ServerUpdateHeldPose(position, rotation);
         }
 
         [Rpc(SendTo.Server)]
-        void RequestThrowServerRpc(Vector3 velocity)
+        void RequestDropServerRpc(RpcParams rpcParams = default)
         {
-            _heldItemServerRef?.ServerThrow(velocity);
+            FindServerHeldItem(rpcParams.Receive.SenderClientId)?.ServerRelease();
         }
 
-        /// <summary>Server-side lookup of what this player currently holds (server doesn't
-        /// trust the client's local `_heldItem` cache - it re-derives authority from the
-        /// item's own replicated state).</summary>
-        PhysicsItem _heldItemServerRef
+        [Rpc(SendTo.Server)]
+        void RequestThrowServerRpc(Vector3 velocity, RpcParams rpcParams = default)
         {
-            get
-            {
-                foreach (var item in FindObjectsByType<PhysicsItem>(FindObjectsSortMode.None))
-                    if (item.IsHeld.Value && item.HolderClientId.Value == OwnerClientId)
-                        return item;
-                return null;
-            }
+            FindServerHeldItem(rpcParams.Receive.SenderClientId)?.ServerThrow(velocity);
+        }
+
+        /// <summary>Server-side lookup, trusting only the RPC sender's own clientId (never a
+        /// client-supplied id) for "which item is this caller holding".</summary>
+        static PhysicsItem FindServerHeldItem(ulong clientId)
+        {
+            foreach (var item in FindObjectsByType<PhysicsItem>(FindObjectsSortMode.None))
+                if (item.IsHeld.Value && item.HolderClientId.Value == clientId)
+                    return item;
+            return null;
         }
     }
 }

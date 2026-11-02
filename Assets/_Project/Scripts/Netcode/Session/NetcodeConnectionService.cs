@@ -17,6 +17,7 @@ namespace Game.Netcode
         readonly IPlayerIdentityProvider _identity;
         readonly AppConfig _config;
         readonly ApprovalHandler _approval;
+        readonly SessionObjectsPrefabRef _sessionObjects;
 
         public bool IsHost => _networkManager.IsHost;
         public bool IsClient => _networkManager.IsClient;
@@ -31,13 +32,15 @@ namespace Game.Netcode
             ITransportConfigurator transport,
             IPlayerIdentityProvider identity,
             AppConfig config,
-            ApprovalHandler approval)
+            ApprovalHandler approval,
+            SessionObjectsPrefabRef sessionObjects)
         {
             _networkManager = networkManager;
             _transport = transport;
             _identity = identity;
             _config = config;
             _approval = approval;
+            _sessionObjects = sessionObjects;
 
             _networkManager.OnClientConnectedCallback += OnClientConnected;
             _networkManager.OnClientDisconnectCallback += OnClientDisconnect;
@@ -50,6 +53,12 @@ namespace Game.Netcode
             _transport.ConfigureForHost(_config);
             SetLocalPayload();
             _networkManager.StartHost();
+
+            if (_sessionObjects?.Prefab != null)
+            {
+                var go = UnityEngine.Object.Instantiate(_sessionObjects.Prefab);
+                go.GetComponent<NetworkObject>().Spawn();
+            }
         }
 
         public void StartClient(ConnectRequest request)

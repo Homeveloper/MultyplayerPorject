@@ -26,6 +26,7 @@ namespace Game.Bootstrap
     {
         [SerializeField] AppConfig _config;
         [SerializeField] NetworkManager _networkManager;
+        [SerializeField] GameObject _sessionObjectsPrefab;
 
 #if GAME_STEAM_SDK
         SteamBootstrap _steamBootstrap;
@@ -59,12 +60,17 @@ namespace Game.Bootstrap
             var flow = new GameObject("SessionFlowController").AddComponent<SessionFlowController>();
             DontDestroyOnLoad(flow.gameObject);
             flow.Construct(Container.Resolve<IConnectionService>());
+
+            var cleanup = new GameObject("ItemSessionCleanup").AddComponent<Game.Gameplay.Items.ItemSessionCleanup>();
+            DontDestroyOnLoad(cleanup.gameObject);
+            cleanup.Construct(Container.Resolve<IConnectionService>());
         }
 
         protected override void Configure(IContainerBuilder builder)
         {
             builder.RegisterInstance(_config);
             builder.RegisterInstance(_networkManager);
+            builder.RegisterInstance(new SessionObjectsPrefabRef(_sessionObjectsPrefab));
 
 #if GAME_STEAM_SDK
             bool steam = _config.ResolvedTransportType == TransportType.SteamP2P;
