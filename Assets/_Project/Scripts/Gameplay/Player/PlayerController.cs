@@ -52,6 +52,19 @@ namespace Game.Gameplay.Player
             _inputActions.Enable();
 
             if (_camera != null) _camera.gameObject.SetActive(true);
+
+            // Locking the cursor also keeps the Game view reliably focused for keyboard/mouse
+            // input - without this, hotkeys can silently stop registering after a UI click
+            // (e.g. the Lobby's Start button) moved focus away from the game view.
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+        }
+
+        public override void OnNetworkDespawn()
+        {
+            if (!IsOwner) return;
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
         }
 
         void Update()
