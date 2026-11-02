@@ -272,7 +272,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Gameplay::Game.Gameplay.Player.PlayerController
   ShowTopMostFoldoutHeaderGroup: 1
   _moveSpeed: 5
-  _lookSensitivity: 2
+  _lookSensitivity: 0.1
   _camera: {fileID: 1288658193594985495}
   _inputActions: {fileID: -944628639613478452, guid: 289c1b55c9541489481df5cc06664110, type: 3}
 --- !u!114 &8740487889697524778

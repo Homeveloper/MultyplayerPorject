@@ -16,7 +16,7 @@ namespace Game.Gameplay.Player
     public class PlayerController : NetworkBehaviour
     {
         [SerializeField] float _moveSpeed = 5f;
-        [SerializeField] float _lookSensitivity = 2f;
+        [SerializeField] float _lookSensitivity = 0.1f; // Look reads raw mouse delta in pixels, so this stays small
         [SerializeField] Camera _camera;
         [SerializeField] InputActionAsset _inputActions;
 
