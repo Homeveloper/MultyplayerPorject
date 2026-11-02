@@ -1,0 +1,18 @@
+{
+    "name": "Game.Transport.Steam",
+    "rootNamespace": "Game.Transport.Steam",
+    "references": [
+        "Game.Core",
+        "Unity.Netcode.Runtime",
+        "Netcode.Transports.Facepunch"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
