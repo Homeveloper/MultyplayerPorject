@@ -12,7 +12,7 @@ namespace Game.Netcode
     /// joiners automatically, since NetworkList state syncs on spawn). Also owns the
     /// "Start" trigger the host uses to leave the lobby and load the game scene.
     /// </summary>
-    public class LobbySessionController : NetworkBehaviour, IPlayerRegistry
+    public class LobbySessionController : NetworkBehaviour, ISessionController
     {
         public static LobbySessionController Instance { get; private set; }
 
@@ -56,6 +56,7 @@ namespace Game.Netcode
         public override void OnNetworkSpawn()
         {
             Instance = this;
+            ActiveSession.Current = this;
             _players.OnListChanged += _ => Changed?.Invoke();
 
             if (IsServer)
@@ -63,12 +64,14 @@ namespace Game.Netcode
                 NetworkManager.OnClientConnectedCallback += OnClientConnected;
                 NetworkManager.OnClientDisconnectCallback += OnClientDisconnected;
                 AddOrUpdate(NetworkManager.ServerClientId);
+                StartRequestedByHost += () => GameServices.Current.Resolve<NetworkSceneLoader>().LoadSceneForAll("GameLevel");
             }
         }
 
         public override void OnNetworkDespawn()
         {
             if (Instance == this) Instance = null;
+            if (ActiveSession.Current == (ISessionController)this) ActiveSession.Current = null;
             if (IsServer)
             {
                 NetworkManager.OnClientConnectedCallback -= OnClientConnected;
@@ -133,7 +136,7 @@ namespace Game.Netcode
 
         /// <summary>Only ever called on the host (the Start button is hidden for clients), so a
         /// plain authority check is enough - no RPC hop needed since host == server here.</summary>
-        public void HostRequestsStart()
+        public void RequestStart()
         {
             if (!IsServer) return;
             StartRequestedByHost?.Invoke();

@@ -20,14 +20,20 @@ namespace Game.Gameplay.Player
         [SerializeField] Camera _camera;
         [SerializeField] InputActionAsset _inputActions;
 
+        static readonly Color[] _palette = { Color.white, Color.red, Color.green, Color.blue, Color.yellow, Color.magenta };
+
         CharacterController _controller;
+        PlayerNetworkIdentity _identity;
         InputAction _move;
         InputAction _look;
+        InputAction _changeColor;
         float _pitch;
+        int _colorIndex;
 
         void Awake()
         {
             _controller = GetComponent<CharacterController>();
+            _identity = GetComponent<PlayerNetworkIdentity>();
         }
 
         public override void OnNetworkSpawn()
@@ -42,6 +48,7 @@ namespace Game.Gameplay.Player
             var map = _inputActions.FindActionMap("Player", throwIfNotFound: false);
             _move = map?.FindAction("Move");
             _look = map?.FindAction("Look");
+            _changeColor = map?.FindAction("ChangeColor");
             _inputActions.Enable();
 
             if (_camera != null) _camera.gameObject.SetActive(true);
@@ -63,6 +70,12 @@ namespace Game.Gameplay.Player
             {
                 _pitch = Mathf.Clamp(_pitch - lookInput.y * _lookSensitivity, -80f, 80f);
                 _camera.transform.localEulerAngles = new Vector3(_pitch, 0f, 0f);
+            }
+
+            if (_changeColor != null && _changeColor.WasPressedThisFrame() && _identity != null)
+            {
+                _colorIndex = (_colorIndex + 1) % _palette.Length;
+                _identity.RequestColorChange(_palette[_colorIndex]);
             }
         }
     }

@@ -20,6 +20,12 @@ namespace Game.Netcode
         public override void OnNetworkSpawn()
         {
             _timer = 0f;
+            ActivePing.Current = this;
+        }
+
+        public override void OnNetworkDespawn()
+        {
+            if (ActivePing.Current == (IPingProvider)this) ActivePing.Current = null;
         }
 
         void Update()

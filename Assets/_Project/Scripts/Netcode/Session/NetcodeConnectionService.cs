@@ -16,6 +16,7 @@ namespace Game.Netcode
         readonly ITransportConfigurator _transport;
         readonly IPlayerIdentityProvider _identity;
         readonly AppConfig _config;
+        readonly ApprovalHandler _approval;
 
         public bool IsHost => _networkManager.IsHost;
         public bool IsClient => _networkManager.IsClient;
@@ -29,12 +30,14 @@ namespace Game.Netcode
             NetworkManager networkManager,
             ITransportConfigurator transport,
             IPlayerIdentityProvider identity,
-            AppConfig config)
+            AppConfig config,
+            ApprovalHandler approval)
         {
             _networkManager = networkManager;
             _transport = transport;
             _identity = identity;
             _config = config;
+            _approval = approval;
 
             _networkManager.OnClientConnectedCallback += OnClientConnected;
             _networkManager.OnClientDisconnectCallback += OnClientDisconnect;
@@ -43,6 +46,7 @@ namespace Game.Netcode
         public void StartHost()
         {
             _networkManager.NetworkConfig.ConnectionApproval = true;
+            _approval.Install();
             _transport.ConfigureForHost(_config);
             SetLocalPayload();
             _networkManager.StartHost();
@@ -57,6 +61,7 @@ namespace Game.Netcode
 
         public void Shutdown()
         {
+            if (_networkManager.IsServer) _approval.Uninstall();
             _networkManager.Shutdown();
         }
 

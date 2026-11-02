@@ -21,14 +21,14 @@ namespace Game.Gameplay.Items
         InputAction _spawn, _interact, _throw;
         IStatsService _stats;
 
-        public void Construct(IStatsService stats) => _stats = stats;
-
         public override void OnNetworkSpawn()
         {
             PhysicsItem.OwnershipGainedLocally += OnOwnershipGained;
             PhysicsItem.OwnershipLostLocally += OnOwnershipLost;
 
             if (!IsOwner) return;
+
+            _stats = GameServices.Current?.Resolve<IStatsService>();
 
             var map = _inputActions.FindActionMap("Player", throwIfNotFound: false);
             _spawn = map?.FindAction("Spawn");
@@ -75,7 +75,10 @@ namespace Game.Gameplay.Items
                 if (_interact != null && _interact.WasPressedThisFrame())
                     RequestDropServerRpc();
                 else if (_throw != null && _throw.WasPressedThisFrame())
+                {
                     RequestThrowServerRpc(transform.forward * _throwForce + Vector3.up * (_throwForce * 0.3f));
+                    _stats?.Increment("items_thrown"); // fired locally, on the throwing client - not routed through the host
+                }
             }
         }
 
