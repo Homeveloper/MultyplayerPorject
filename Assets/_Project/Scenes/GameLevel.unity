@@ -542,7 +542,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2a93e3713052edc4fb4645e528841a58, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.Gameplay::Game.Gameplay.Items.ItemSpawner
-  ShowTopMostFoldoutHeaderGroup: 1
   _itemPrefab: {fileID: 4312538477685192997, guid: 7108407797feaf14b84bbc3ee9cb8873, type: 3}
   _spawnDistance: 1.5
   _spawnHeight: 1
@@ -710,6 +709,51 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Gameplay::Game.Gameplay.UI.PlayerListPanelController
   _rowContainer: {fileID: 1813450981}
   _rowPrefab: {fileID: 6210385629284887532, guid: c3412d17e4b1a4645a13480687c2751e, type: 3}
+--- !u!1 &1266952116
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1266952118}
+  - component: {fileID: 1266952117}
+  m_Layer: 0
+  m_Name: PlayerListToggleController
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1266952117
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1266952116}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b0bdf8166f96a514c843c0d351a5ccce, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Gameplay::Game.Gameplay.UI.PlayerListToggleController
+  _panel: {fileID: 837619119}
+--- !u!4 &1266952118
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1266952116}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1427649000
 GameObject:
   m_ObjectHideFlags: 0
@@ -1038,3 +1082,4 @@ SceneRoots:
   - {fileID: 984392022}
   - {fileID: 454608896}
   - {fileID: 512257465}
+  - {fileID: 1266952118}
