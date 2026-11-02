@@ -22,10 +22,31 @@ namespace Game.Gameplay.Items
         public NetworkVariable<ulong> HolderClientId = new(ulong.MaxValue, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
         Rigidbody _rigidbody;
+        Collider _collider;
 
         void Awake()
         {
             _rigidbody = GetComponent<Rigidbody>();
+            _collider = GetComponent<Collider>();
+        }
+
+        public override void OnNetworkSpawn()
+        {
+            // Runs on every peer (server and all clients), each with its own local physics
+            // world - every one of them needs to stop colliding with the item while it's
+            // held, or its collider overlapping the holder's CharacterController pushes the
+            // player around as the item follows the hand each frame.
+            IsHeld.OnValueChanged += OnHeldChanged;
+            ApplyColliderState(IsHeld.Value);
+        }
+
+        public override void OnNetworkDespawn() => IsHeld.OnValueChanged -= OnHeldChanged;
+
+        void OnHeldChanged(bool previous, bool current) => ApplyColliderState(current);
+
+        void ApplyColliderState(bool held)
+        {
+            if (_collider != null) _collider.enabled = !held;
         }
 
         /// <summary>Server-only: validates and performs a pickup. Returns false (no state change,
