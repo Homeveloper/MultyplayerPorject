@@ -107,5 +107,14 @@ namespace Game.Gameplay.Items
             if (IsServer && IsHeld.Value && HolderClientId.Value == clientId)
                 ReturnToFreePhysics();
         }
+
+        /// <summary>Server-only: a walking player's CharacterController bumped into this item -
+        /// nudge it along the ground instead of the player walking through/over it, simulated
+        /// only here so every client sees the same push.</summary>
+        public void ServerApplyPush(Vector3 horizontalVelocity)
+        {
+            if (!IsServer || IsHeld.Value) return;
+            _rigidbody.linearVelocity = new Vector3(horizontalVelocity.x, _rigidbody.linearVelocity.y, horizontalVelocity.z);
+        }
     }
 }

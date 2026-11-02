@@ -17,6 +17,7 @@ namespace Game.Gameplay.Player
     {
         [SerializeField] float _moveSpeed = 5f;
         [SerializeField] float _lookSensitivity = 0.1f; // Look reads raw mouse delta in pixels, so this stays small
+        [SerializeField] float _pushForce = 2.5f;
         [SerializeField] Camera _camera;
         [SerializeField] InputActionAsset _inputActions;
 
@@ -90,6 +91,30 @@ namespace Game.Gameplay.Player
                 _colorIndex = (_colorIndex + 1) % _palette.Length;
                 _identity.RequestColorChange(_palette[_colorIndex]);
             }
+        }
+
+        /// <summary>CharacterController doesn't push Rigidbodies on its own - without this, the
+        /// player just walks through (or, with enough step height, over) anything it bumps
+        /// into. Detected locally by the owner (who's the one actually moving), applied on the
+        /// server (see PhysicsItem.ServerApplyPush) so the push is simulated once and every
+        /// client sees the same result.</summary>
+        void OnControllerColliderHit(ControllerColliderHit hit)
+        {
+            if (!IsOwner) return;
+            if (hit.moveDirection.y < -0.3f) return; // landing on top of it, not walking into it
+
+            var item = hit.collider.GetComponentInParent<Game.Gameplay.Items.PhysicsItem>();
+            if (item == null || item.IsHeld.Value) return;
+
+            var pushDirection = new Vector3(hit.moveDirection.x, 0f, hit.moveDirection.z);
+            RequestPushItemServerRpc(new NetworkObjectReference(item.NetworkObject), pushDirection * _pushForce);
+        }
+
+        [Rpc(SendTo.Server)]
+        void RequestPushItemServerRpc(NetworkObjectReference itemRef, Vector3 velocity)
+        {
+            if (itemRef.TryGet(out var netObj))
+                netObj.GetComponent<Game.Gameplay.Items.PhysicsItem>()?.ServerApplyPush(velocity);
         }
     }
 }
