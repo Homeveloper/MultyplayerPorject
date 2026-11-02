@@ -28,8 +28,7 @@ namespace Game.Transport.Steam
                 return;
             }
 
-            SteamUserStats.GetStat(statName, out int current);
-            SteamUserStats.SetStat(statName, current + amount);
+            SteamUserStats.AddStat(statName, amount);
             _pending[statName] = _pending.TryGetValue(statName, out var p) ? p + amount : amount;
 
             if (Time.unscaledTime - _lastFlush > FlushIntervalSeconds)

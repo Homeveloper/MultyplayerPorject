@@ -1,14 +1,16 @@
 {
   "dependencies": {
+    "com.community.netcode.transport.facepunch": "https://github.com/Unity-Technologies/multiplayer-community-contributions.git?path=/Transports/com.community.netcode.transport.facepunch",
     "com.unity.collab-proxy": "2.11.2",
     "com.unity.feature.development": "1.0.2",
     "com.unity.inputsystem": "1.17.0",
     "com.unity.multiplayer.center": "1.0.1",
     "com.unity.netcode.gameobjects": "2.13.3",
-    "jp.hadashikick.vcontainer": "https://github.com/hadashiA/VContainer.git?path=VContainer/Assets/VContainer#1.19.0",
+    "com.unity.pipeline": "0.9.1-exp.1",
     "com.unity.timeline": "1.8.10",
     "com.unity.ugui": "2.0.0",
     "com.unity.visualscripting": "1.9.9",
+    "jp.hadashikick.vcontainer": "https://github.com/hadashiA/VContainer.git?path=VContainer/Assets/VContainer#1.19.0",
     "com.unity.modules.accessibility": "1.0.0",
     "com.unity.modules.adaptiveperformance": "1.0.0",
     "com.unity.modules.ai": "1.0.0",
@@ -42,7 +44,6 @@
     "com.unity.modules.video": "1.0.0",
     "com.unity.modules.vr": "1.0.0",
     "com.unity.modules.wind": "1.0.0",
-    "com.unity.modules.xr": "1.0.0",
-    "com.unity.pipeline": "0.9.1-exp.1"
+    "com.unity.modules.xr": "1.0.0"
   }
 }

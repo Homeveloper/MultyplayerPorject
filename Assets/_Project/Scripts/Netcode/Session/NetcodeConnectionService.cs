@@ -57,7 +57,9 @@ namespace Game.Netcode
             if (_sessionObjects?.Prefab != null)
             {
                 var go = UnityEngine.Object.Instantiate(_sessionObjects.Prefab);
-                go.GetComponent<NetworkObject>().Spawn();
+                var netObj = go.GetComponent<NetworkObject>();
+                netObj.DestroyWithScene = false; // must survive the MainMenu -> Lobby -> GameLevel scene loads
+                netObj.Spawn();
             }
         }
 
@@ -66,6 +68,12 @@ namespace Game.Netcode
             _transport.ConfigureForClient(_config, request.Address);
             SetLocalPayload();
             _networkManager.StartClient();
+        }
+
+        public void HostLoadScene(string sceneName)
+        {
+            if (!_networkManager.IsServer) return;
+            _networkManager.SceneManager.LoadScene(sceneName, UnityEngine.SceneManagement.LoadSceneMode.Single);
         }
 
         public void Shutdown()

@@ -64,6 +64,12 @@ namespace Game.Bootstrap
             var cleanup = new GameObject("ItemSessionCleanup").AddComponent<Game.Gameplay.Items.ItemSessionCleanup>();
             DontDestroyOnLoad(cleanup.gameObject);
             cleanup.Construct(Container.Resolve<IConnectionService>());
+
+            Container.Resolve<PlayerSpawner>().Install();
+
+            // Bootstrap holds no gameplay content of its own - once wired up, move straight to
+            // the menu. NetworkManager (this GameObject) persists via its own DontDestroyOnLoad.
+            UnityEngine.SceneManagement.SceneManager.LoadScene("MainMenu");
         }
 
         protected override void Configure(IContainerBuilder builder)
@@ -99,6 +105,7 @@ namespace Game.Bootstrap
             builder.Register<ApprovalHandler>(Lifetime.Singleton);
             builder.Register<NetcodeConnectionService>(Lifetime.Singleton).As<IConnectionService>();
             builder.Register<NetworkSceneLoader>(Lifetime.Singleton);
+            builder.Register<PlayerSpawner>(Lifetime.Singleton);
         }
     }
 }

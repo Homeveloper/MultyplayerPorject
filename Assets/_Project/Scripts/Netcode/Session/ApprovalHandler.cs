@@ -69,7 +69,10 @@ namespace Game.Netcode
             _approvedPayloads[request.ClientNetworkId] = payload;
 
             response.Approved = true;
-            response.CreatePlayerObject = true;
+            // No auto-spawned player object here - this approval fires while the player is
+            // still in the Lobby (menu/UI only); the 3D character is spawned by PlayerSpawner
+            // once the session actually loads GameLevel.
+            response.CreatePlayerObject = false;
             response.Pending = false;
         }
 

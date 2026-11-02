@@ -23,6 +23,11 @@ namespace Game.Core
         void StartClient(ConnectRequest request);
         void Shutdown();
 
+        /// <summary>Host-only: synchronized scene load for every connected client (see
+        /// NetworkSceneLoader) - never use a plain SceneManager.LoadScene for a scene change
+        /// that must carry spawned NetworkObjects across, or they will be destroyed uncleanly.</summary>
+        void HostLoadScene(string sceneName);
+
         event Action<ulong> ClientConnected;
         event Action<ulong, string> ClientDisconnected; // clientId, reason
         event Action<string> LocalDisconnected; // reason shown to this client (e.g. host left, rejected)

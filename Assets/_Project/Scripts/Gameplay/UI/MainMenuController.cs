@@ -38,7 +38,9 @@ namespace Game.Gameplay.UI
         void OnHostClicked()
         {
             _connection.StartHost();
-            UnityEngine.SceneManagement.SceneManager.LoadScene("Lobby");
+            // Synchronized (NGO-managed) scene load - a plain SceneManager.LoadScene here would
+            // destroy the NetworkObjects just spawned by StartHost (session roster, ping tracker).
+            _connection.HostLoadScene("Lobby");
         }
 
         void OnJoinClicked()

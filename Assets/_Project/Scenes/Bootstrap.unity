@@ -153,7 +153,7 @@ MonoBehaviour:
     TypeName: 
   autoRun: 1
   autoInjectGameObjects: []
-  _config: {fileID: 0}
+  _config: {fileID: 11400000, guid: be6cb3181d4dcf34f8d87306308e7c7d, type: 2}
   _networkManager: {fileID: 1641402127}
   _sessionObjectsPrefab: {fileID: 5196254703156543196, guid: f09d23b0792960c4e9735a18b02c0ab3, type: 3}
 --- !u!114 &1641402127
