@@ -1,0 +1,18 @@
+{
+    "name": "Game.Transport.Unity",
+    "rootNamespace": "Game.Transport.Unity",
+    "references": [
+        "Game.Core",
+        "Unity.Netcode.Runtime",
+        "Unity.Networking.Transport"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
