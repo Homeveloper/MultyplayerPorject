@@ -1,0 +1,17 @@
+{
+    "name": "Game.Netcode",
+    "rootNamespace": "Game.Netcode",
+    "references": [
+        "Game.Core",
+        "Unity.Netcode.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
