@@ -3,8 +3,7 @@
     "rootNamespace": "Game.Transport.Steam",
     "references": [
         "Game.Core",
-        "Unity.Netcode.Runtime",
-        "Netcode.Transports.Facepunch"
+        "Unity.Netcode.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
