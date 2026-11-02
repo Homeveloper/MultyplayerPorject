@@ -3,7 +3,8 @@
     "rootNamespace": "Game.Netcode",
     "references": [
         "Game.Core",
-        "Unity.Netcode.Runtime"
+        "Unity.Netcode.Runtime",
+        "Unity.Collections"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

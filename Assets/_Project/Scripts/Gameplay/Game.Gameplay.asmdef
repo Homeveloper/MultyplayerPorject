@@ -5,6 +5,7 @@
         "Game.Core",
         "Unity.Netcode.Runtime",
         "Unity.InputSystem",
+        "Unity.Collections",
         "VContainer"
     ],
     "includePlatforms": [],
