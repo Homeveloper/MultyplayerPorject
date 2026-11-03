@@ -65,6 +65,16 @@ namespace Game.Netcode
 
         public void StartClient(ConnectRequest request)
         {
+            // A client that failed to connect once is left "listening" by NGO and refuses a
+            // second StartClient() until explicitly shut down - make retry-after-failure work.
+            if (_networkManager.IsListening) _networkManager.Shutdown();
+
+            // NGO's connection handshake serializes differently on each end depending on this
+            // flag - it must match the host's (always true here), or the host reads the
+            // client's connection request as malformed ("Incomplete connection request
+            // message... NetworkConfig mismatch") and silently drops it.
+            _networkManager.NetworkConfig.ConnectionApproval = true;
+
             _transport.ConfigureForClient(_config, request.Address);
             SetLocalPayload();
             _networkManager.StartClient();
