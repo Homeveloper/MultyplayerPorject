@@ -35,12 +35,20 @@ namespace Game.Transport.Unity
         public void ConfigureForHost(AppConfig config)
         {
             Transport.SetConnectionData("0.0.0.0", config.ResolvedPort);
+            ApplySimulatorFromConfig(config);
         }
 
         public void ConfigureForClient(AppConfig config, string joinTarget)
         {
             var address = string.IsNullOrEmpty(joinTarget) ? config.ResolvedJoinAddress : joinTarget;
             Transport.SetConnectionData(address, config.ResolvedPort);
+            ApplySimulatorFromConfig(config);
+        }
+
+        void ApplySimulatorFromConfig(AppConfig config)
+        {
+            if (config.SimulateNetworkConditions)
+                ApplySimulatorPreset(config.SimulatedDelayMs, config.SimulatedJitterMs, config.SimulatedPacketLossPercent);
         }
 
         /// <summary>Unity Transport's built-in Network Simulator - used to rehearse the ~150ms/packet-loss

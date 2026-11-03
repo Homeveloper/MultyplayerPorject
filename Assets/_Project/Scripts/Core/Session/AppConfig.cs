@@ -24,6 +24,13 @@ namespace Game.Core
         [Header("Steam")]
         public uint SteamAppId = 480;
 
+        [Header("Network Simulator (Unity Transport only, editor/dev builds)")]
+        [Tooltip("Rehearse the ~150ms latency + packet loss conditions the brief says will be tested under.")]
+        public bool SimulateNetworkConditions = false;
+        public int SimulatedDelayMs = 150;
+        public int SimulatedJitterMs = 20;
+        [Range(0, 100)] public int SimulatedPacketLossPercent = 2;
+
         // Runtime-only overrides (CLI args). Not serialized.
         [System.NonSerialized] public TransportType? TransportTypeOverride;
         [System.NonSerialized] public string JoinAddressOverride;
