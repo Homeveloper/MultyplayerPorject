@@ -1,9 +1,16 @@
+using UnityEngine;
+
 namespace Game.Core
 {
     public interface ISessionController : IPlayerRegistry
     {
         // no-op unless called on the host
         void RequestStart();
+
+        // lets a player who disconnects and reconnects within the same hosted session get their
+        // chosen color back instead of resetting to default - host-only, no-op on a client
+        bool TryGetLastKnownColor(string playerId, out Color color);
+        void RememberColor(string playerId, Color color);
     }
 
     // points UI at whichever NGO-spawned session object is active right now, so Gameplay/UI

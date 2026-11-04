@@ -1,22 +1,27 @@
 # Co-op Physics Prototype
 
-A small 2-4 player co-op prototype built on Netcode for GameObjects. Players connect to a
-host, land in a lobby, load into the level together, and grab/throw shared physics props.
+A small 2 to 4 player co-op prototype built on Netcode for GameObjects. Players connect to a
+host, land in a lobby, load into the level together, and grab and throw shared physics props.
 
 ## Launch
 
-**Hosting / joining**
+**Hosting and joining**
 
-- From the main menu: `Host` creates a session, `Join` connects to one.
-- Transport is picked in one place (`AppConfig`, overridable via command line) - switching
-  it never touches game code.
-  - **Unity Transport**: type an `IP:port` (or just the port) in the Join field. Works with
+- From the main menu, `Host` creates a session and `Join` connects to one.
+- Transport is picked in one place (`AppConfig`, overridable via command line). Switching it
+  never touches game code.
+  - **Unity Transport.** Type an `IP:port` (or just the port) in the Join field. Works with
     several instances on one PC for local testing.
-  - **Steam P2P**: no IP needed. Host creates a Steam lobby and shares either a 5-character
-    join code, or invites a friend directly from the in-game friends list (or Steam's own
-    overlay/friends list).
+  - **Steam P2P.** No IP needed. The host creates a Steam lobby and shares either a
+    5 character join code, or invites a friend directly from the in-game friends list (or
+    Steam's own overlay and friends list).
 
-**Command line arguments** (override the serialized `AppConfig` values at runtime):
+For Steam mode to work during testing, the build first needs to be added to the local Steam
+client as a non-Steam game, with `-transport steam` set as its launch option. This is only a
+quirk of testing under the shared test AppID 480 (Spacewar), explained in more detail under
+Known issues below. It shouldn't be needed once the project ships under its own Steam AppID.
+
+**Command line arguments** (override the serialized `AppConfig` values at runtime)
 
 | Argument | Values | Effect |
 |---|---|---|
@@ -24,9 +29,9 @@ host, land in a lobby, load into the level together, and grab/throw shared physi
 | `-port` | a number | Overrides the listen/connect port (Unity Transport) |
 | `-ip` | an address | Pre-fills the join address (Unity Transport) |
 
-Requires `steam_appid.txt` (AppID 480, Spacewar) next to the executable for Steam mode to
-initialize. If Steam isn't running, the game falls back to showing a clear message instead
-of crashing (and to Unity Transport, if that path is configured).
+The build also needs `steam_appid.txt` (AppID 480, Spacewar) next to the executable for Steam
+mode to initialize. If Steam isn't running, the game doesn't crash. It shows a clear message
+instead, and falls back to Unity Transport if that path is configured.
 
 **Controls**
 
@@ -48,91 +53,131 @@ of crashing (and to Unity Transport, if that path is configured).
 ## Architecture
 
 ```
-Game.Core          - interfaces, DTOs, no Unity/Netcode/Steam dependency
-                      (IConnectionService, ILobbyService, IPresenceService, IStatsService, DisconnectReason, AppConfig)
-Game.Netcode        - Netcode for GameObjects implementation of Game.Core's interfaces
-                      (NetcodeConnectionService, ApprovalHandler, LobbySessionController, PingTracker, NetworkSceneLoader)
-Game.Transport.Unity  - Unity Transport installer (IP:port)
-Game.Transport.Steam  - Facepunch.Steamworks: Steam P2P transport installer, Steam Lobbies,
-                         Rich Presence, Stats, SteamBootstrap (Steam session lifecycle)
-Game.Gameplay       - player controller, physics items, all UI - depends only on Game.Core
-Game.Bootstrap      - composition root (VContainer): wires everything above together,
-                      decides which transport to install, parses command line overrides
+Game.Core          interfaces and DTOs, no Unity/Netcode/Steam dependency
+                    (IConnectionService, ILobbyService, IPresenceService, IStatsService, DisconnectReason, AppConfig)
+Game.Netcode        Netcode for GameObjects implementation of Game.Core's interfaces
+                    (NetcodeConnectionService, ApprovalHandler, LobbySessionController, PingTracker, NetworkSceneLoader)
+Game.Transport.Unity  Unity Transport installer (IP:port)
+Game.Transport.Steam  Facepunch.Steamworks, Steam P2P transport installer, Steam Lobbies,
+                       Rich Presence, Stats, SteamBootstrap (Steam session lifecycle)
+Game.Gameplay       player controller, physics items, all UI, depends only on Game.Core
+Game.Bootstrap      composition root (VContainer) that wires everything above together,
+                    decides which transport to install, and parses command line overrides
 ```
 
-Gameplay code only ever talks to `IConnectionService` / `ILobbyService` / `IPresenceService`
-/ `IStatsService` - it never references `NetworkManager`, `SteamClient`, or any transport
-type directly. Swapping Unity Transport for Steam P2P (or adding a third transport) means
-registering a different implementation in `Game.Bootstrap`; no other layer changes.
+Gameplay code only ever talks to `IConnectionService`, `ILobbyService`, `IPresenceService`
+and `IStatsService`. It never references `NetworkManager`, `SteamClient`, or any transport
+type directly. Swapping Unity Transport for Steam P2P, or adding a third transport, just
+means registering a different implementation in `Game.Bootstrap`. No other layer changes.
 
-Netcode spawns `NetworkBehaviour`s itself, so they can't be constructor-injected by VContainer.
-A tiny service-locator escape hatch (`GameServices.Current.Resolve<T>()`) lets them pull
+Netcode spawns `NetworkBehaviour`s itself, so VContainer can't constructor-inject them. A
+tiny service locator escape hatch (`GameServices.Current.Resolve<T>()`) lets them pull their
 dependencies in `OnNetworkSpawn` instead.
 
 **Extension points**
 
-- New transport: implement `ITransportConfigurator`, register it in `Game.Bootstrap`.
-- New item type: subclass/compose on top of `PhysicsItem`, same pickup/throw/ownership flow.
+- New transport. Implement `ITransportConfigurator` and register it in `Game.Bootstrap`.
+- New item type. Subclass or compose on top of `PhysicsItem`, using the same pickup, throw
+  and ownership flow.
 
 ## Networking decisions
 
-**Authority.** The host is authoritative for session state and every physics item. Item
-pickup, drop, and throw are all validated server-side (pickup distance, whether the item is
-already held, whether the caller actually holds the item they're trying to drop/throw). If
-two players grab the same item in the same frame, the server resolves it: whoever's request
-lands first wins, the second request is rejected and simply does nothing client-side - no
-desync.
+**Authority.** The host is authoritative for session state and for every physics item. Item
+pickup, drop and throw are all validated server side, including pickup distance, whether the
+item is already held, and whether the caller actually holds the item they're trying to drop
+or throw. If two players grab the same item in the same frame, the server resolves it.
+Whoever's request lands first wins, and the second request is simply rejected and does
+nothing on that client, so there's no desync.
 
-**Items.** An item is spawned by the host, server-owned, and physics-simulated on the server;
-its `NetworkTransform` is written by the server the whole time. On pickup, `NetworkObject`
-ownership transfers to the holder (per the brief) but transform write-authority stays with
-the server - while held, the item just snaps to the hand pose the holding client reports.
-On drop/throw, ownership returns to the host and it goes back to being a free rigidbody. If
-the holder disconnects mid-carry, the server force-releases the item so it drops in place
-instead of disappearing or getting stuck "held" forever (this needed `DontDestroyWithOwner`
-set on the item prefab too, since Netcode despawns a disconnecting owner's objects by
-default).
+**Items.** An item is spawned by the host, owned by the server, and physics simulated on the
+server. Its `NetworkTransform` is written by the server the whole time. On pickup,
+`NetworkObject` ownership transfers to the holder, as the brief asks for, but transform
+write authority stays with the server. While held, the item just snaps to the hand pose the
+holding client reports. On drop or throw, ownership returns to the host and the item goes
+back to being a free rigidbody. If the holder disconnects mid carry, the server force
+releases the item so it drops in place instead of disappearing or getting stuck held
+forever. That also needed `DontDestroyWithOwner` set on the item prefab, since Netcode
+despawns a disconnecting owner's objects by default.
 
-**Characters.** Owner-authoritative movement: only the owning client reads input and moves
-its own `CharacterController`, `NetworkTransform` replicates the result to everyone else.
-This is a co-op prototype, not a competitive shooter - there's nothing to cheat by moving
-your own character, so there's no reason to pay for server reconciliation. Remote players are
-smoothed by `NetworkTransform`'s own interpolation, not read as raw per-tick snapshots.
+**Characters.** Movement is owner authoritative. Only the owning client reads input and
+moves its own `CharacterController`, and `NetworkTransform` replicates the result to
+everyone else. This is a co-op prototype, not a competitive shooter, so there's nothing to
+cheat by moving your own character, and no reason to pay for server reconciliation. Remote
+players are smoothed by `NetworkTransform`'s own interpolation rather than read as raw
+per tick snapshots.
 
-**Session lifecycle.** Connection approval on the host checks build version, player count,
-duplicate `PlayerId` (a locally-saved GUID, or SteamID in Steam mode), and a "kicked this
-session" list - a kicked player's reconnect attempt is rejected, not silently allowed back
-in. Scene loading after the lobby's Start button is a synced Netcode scene event: the host
-tracks every client's load status and the loading screen only drops once everyone has
-finished. A late-joiner instead loads the level on their own, catches up via the networked
-state (which items exist, who's holding what), and nobody else waits for them. A client
-disconnecting (including Alt+F4 or a dropped connection) never blocks the rest of the
-session; if they were holding an item, it's released and drops where they stood. The host
-leaving returns every client to the main menu with an on-screen reason, no host migration.
+**Session lifecycle.** Connection approval on the host checks the build version, the player
+count, a duplicate `PlayerId` (a locally saved GUID, or a SteamID in Steam mode), and a list
+of players kicked this session, so a kicked player's reconnect attempt is rejected rather
+than silently let back in. Scene loading after the lobby's Start button is a synced Netcode
+scene event. The host tracks every client's load status, and the loading screen only drops
+once everyone has finished. A late joiner instead loads the level on their own, catches up
+through the networked state (which items exist, who's holding what), and nobody else waits
+for them. A client disconnecting, including Alt+F4 or a dropped connection, never blocks the
+rest of the session. If they were holding an item, it's released and drops where they stood.
+The host leaving returns every client to the main menu with an on screen reason, and there's
+no host migration.
 
-**Steam Lobbies.** Lobbies are created **Public**, not `FriendsOnly`/`Private` as suggested
-in the brief. Reason: joining by the 5-character code looks the lobby up via Steam's lobby
-list search, and that search only ever returns Public lobbies - `FriendsOnly`/`Private`
-lobbies are invisible to it no matter what key filters are used, that's a Steam limitation,
-not a bug on our side. Direct Steam invites (in-game friends list or Steam's own overlay)
-work identically regardless of visibility, so they're unaffected. If strict
-`FriendsOnly`/`Private` visibility is required instead, the join-by-code flow should be
-dropped (or changed to join by the raw numeric Steam lobby ID instead of a short code) -
-lobby visibility is set in exactly one place, so that's the only change needed.
+**Steam Lobbies.** Lobbies are created Public rather than FriendsOnly or Private, which the
+brief suggests as the lobby type. The reason is that joining by the 5 character code looks
+the lobby up through Steam's lobby list search, and that search only ever returns Public
+lobbies. FriendsOnly and Private lobbies are invisible to it no matter what key filters are
+used, which is a Steam limitation rather than a bug on our side. Direct Steam invites, either
+through the in-game friends list or Steam's own overlay, work identically regardless of
+visibility, so they're unaffected by this. If strict FriendsOnly or Private visibility is
+needed instead, the join by code flow should be dropped, or changed to join by the raw
+numeric Steam lobby ID instead of a short code. Lobby visibility is set in exactly one place,
+so that's the only change this would need.
 
-A disconnect (a kick, the host leaving, our own retry cleanup) shuts down the Steam P2P
-transport, which kills the local Steam session entirely, not just the P2P connection - a
-quirk of the community Facepunch transport package, not something we trigger on purpose.
-The game detects this and reconnects to Steam automatically (on next use, and proactively
-when landing back on the main menu) so a kicked or disconnected player never needs to
-restart the whole game to use Steam features again.
+A disconnect, whether it's a kick, the host leaving, or our own retry cleanup, shuts down the
+Steam P2P transport, and that kills the local Steam session entirely rather than just the P2P
+connection. This is a quirk of the community Facepunch transport package, not something we
+trigger on purpose. The game detects this and reconnects to Steam automatically, both on the
+next use and proactively when landing back on the main menu, so a kicked or disconnected
+player never needs to restart the whole game to use Steam features again.
 
 ## Known issues
 
-- Connection timeout as an explicit rejection reason isn't separately implemented - Netcode's
-  own built-in approval timeout handles it, but it surfaces through Netcode's own message
-  rather than our friendly `DisconnectReason` text.
-- Stats/Achievements is a logging stub (as allowed by the brief), not wired to real Steam
-  stat names.
-- No dedicated reconnect flow for a client that drops mid-session and wants back in without
-  being kicked - they can rejoin like a fresh late-joiner, but there's no session resume.
+- Connection timeout isn't implemented as its own explicit rejection reason. Netcode's own
+  built in approval timeout already handles it, but it shows up through Netcode's own
+  message rather than our friendly `DisconnectReason` text.
+- Stats and Achievements is a logging stub, which the brief allows, and isn't wired to real
+  Steam stat names.
+- A client that drops mid session without being kicked comes back in like a fresh late
+  joiner rather than resuming the old session, so their position isn't restored. Identity
+  does partially carry over though. A reconnecting player's last chosen color is remembered
+  by `PlayerId` and reapplied automatically instead of resetting to the default.
+- The native Steam overlay (Shift+Tab, Invite) didn't reliably trigger while testing under
+  the shared test AppID 480 (Spacewar), unless the build was first added to the local Steam
+  client as a non-Steam game with `-transport steam` set as its launch option. This is a
+  quirk of testing under a shared test AppID and not something the code controls. It's
+  expected to work normally once the project ships under its own real Steam AppID. The
+  in-game custom friends list, built as a workaround, covers invites reliably regardless of
+  this.
+
+## Demo video
+
+Two screens, one host and one client, captured at the same time.
+
+1. **Join by code.** The client joins the host's lobby by typing the short join code, the
+   fallback entry method that doesn't go through a Steam invite.
+2. **Host leaves.** The host exits the game. The client sees a message that the host left the
+   lobby and is returned to the main menu.
+3. **Host restarts and invites through Steam.** The host creates a new lobby and invites the
+   client directly through a Steam invite. The client accepts and joins.
+4. **Start and gameplay.** The host starts the session. Core gameplay is shown, including
+   movement and picking up and throwing physics items.
+5. **Kick.** The host kicks the client mid session. The client sees the correct disconnect
+   reason and can't rejoin for the rest of the session.
+6. **Steam overlay.** The in-game Steam overlay is also shown separately.
+
+One thing worth explaining about the Steam overlay specifically. Getting it to trigger
+reliably (Shift+Tab and so on) required first adding the build to the local Steam client as
+a non-Steam game, with `-transport steam` set as its launch option. That's a quirk of
+testing under the shared test AppID 480 (Spacewar), not a limitation of the code itself.
+Once the project ships under its own Steam AppID, the overlay should work correctly on its
+own, without that extra setup step.
+
+## Time spent
+
+About 18 hours total.

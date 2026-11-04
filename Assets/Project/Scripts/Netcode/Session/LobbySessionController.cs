@@ -14,6 +14,10 @@ namespace Game.Netcode
         public static LobbySessionController Instance { get; private set; }
 
         readonly NetworkList<NetworkPlayerInfo> _players = new();
+        // keyed by PlayerId (survives a clientId change), not NetworkList - lets a player who
+        // disconnects and reconnects within the same hosted session get their color back instead
+        // of resetting to the default, rather than rejoining as a blank slate every time
+        readonly Dictionary<string, Color> _lastKnownColorByPlayerId = new();
 
         public event Action Changed;
         public event Action StartRequestedByHost;
@@ -100,12 +104,14 @@ namespace Game.Netcode
                 if (!string.IsNullOrEmpty(payload.PlayerName)) name = payload.PlayerName;
             }
 
+            var color = _lastKnownColorByPlayerId.TryGetValue(playerId, out var savedColor) ? savedColor : Color.white;
+
             var entry = new NetworkPlayerInfo
             {
                 ClientId = clientId,
                 PlayerId = ToFixedString64Safe(playerId),
                 Name = ToFixedString64Safe(name),
-                Color = Color.white,
+                Color = color,
                 IsHost = clientId == NetworkManager.ServerClientId
             };
 
@@ -138,8 +144,18 @@ namespace Game.Netcode
                 var entry = _players[i];
                 entry.Color = color;
                 _players[i] = entry;
+                RememberColor(entry.PlayerId.ToString(), color);
                 return;
             }
+        }
+
+        public bool TryGetLastKnownColor(string playerId, out Color color) =>
+            _lastKnownColorByPlayerId.TryGetValue(playerId, out color);
+
+        public void RememberColor(string playerId, Color color)
+        {
+            if (!IsServer || string.IsNullOrEmpty(playerId)) return;
+            _lastKnownColorByPlayerId[playerId] = color;
         }
 
         // only ever called on the host, Start is hidden for clients - plain check, no RPC hop needed

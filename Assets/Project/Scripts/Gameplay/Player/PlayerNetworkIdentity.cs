@@ -1,3 +1,4 @@
+using Game.Core;
 using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
@@ -20,14 +21,44 @@ namespace Game.Gameplay.Player
         public override void OnNetworkSpawn()
         {
             if (IsServer)
+            {
                 DisplayName.Value = $"Player {OwnerClientId}";
+                Color.OnValueChanged += OnServerColorChanged;
+
+                // same PlayerId reconnecting within this session (not a brand new player) gets
+                // their last chosen color back instead of starting over at the default. Color has
+                // Owner write permission, so the server can't just assign Color.Value itself here -
+                // it has to ask the owning client to set it, same as a manual color-change hotkey
+                if (ActiveSession.Current != null && ActiveSession.Current.TryGet(OwnerClientId, out var info)
+                    && info.Id.IsValid && ActiveSession.Current.TryGetLastKnownColor(info.Id.Value, out var savedColor))
+                {
+                    var target = new RpcParams { Send = new RpcSendParams { Target = RpcTarget.Single(OwnerClientId, RpcTargetUse.Temp) } };
+                    RestoreColorRpc(savedColor, target);
+                }
+            }
 
             _propertyBlock = new MaterialPropertyBlock();
             Color.OnValueChanged += OnColorChanged;
             ApplyColor(Color.Value);
         }
 
-        public override void OnNetworkDespawn() => Color.OnValueChanged -= OnColorChanged;
+        public override void OnNetworkDespawn()
+        {
+            Color.OnValueChanged -= OnColorChanged;
+            if (IsServer) Color.OnValueChanged -= OnServerColorChanged;
+        }
+
+        [Rpc(SendTo.SpecifiedInParams)]
+        void RestoreColorRpc(UnityEngine.Color color, RpcParams rpcParams = default)
+        {
+            if (IsOwner) Color.Value = color;
+        }
+
+        void OnServerColorChanged(UnityEngine.Color previous, UnityEngine.Color current)
+        {
+            if (ActiveSession.Current != null && ActiveSession.Current.TryGet(OwnerClientId, out var info) && info.Id.IsValid)
+                ActiveSession.Current.RememberColor(info.Id.Value, current);
+        }
 
         void OnColorChanged(UnityEngine.Color previous, UnityEngine.Color current) => ApplyColor(current);
 
