@@ -21,6 +21,15 @@ client as a non-Steam game, with `-transport steam` set as its launch option. Th
 quirk of testing under the shared test AppID 480 (Spacewar), explained in more detail under
 Known issues below. It shouldn't be needed once the project ships under its own Steam AppID.
 
+To set this up
+
+1. In the Steam client, go to Games, then Add a Non-Steam Game to My Library.
+2. Browse to `MultyplayerPorject.exe` and add it.
+3. Right click the added game in your library, open Properties, and set the launch options
+   to `-transport steam`.
+4. Launch the game from inside Steam itself, not by double clicking the exe directly. This
+   is what lets Steam features like the overlay and invites work correctly.
+
 **Command line arguments** (override the serialized `AppConfig` values at runtime)
 
 | Argument | Values | Effect |
