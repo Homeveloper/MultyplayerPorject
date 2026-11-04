@@ -40,8 +40,6 @@ instead, and falls back to Unity Transport if that path is configured.
 | Move | WASD |
 | Look | Mouse |
 | Jump | Space |
-| Sprint | Left Shift |
-| Crouch | C |
 | Spawn item | G |
 | Pick up / interact | F (hold) |
 | Throw held item | Left Mouse Button |
