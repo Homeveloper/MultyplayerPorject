@@ -3,8 +3,6 @@ using UnityEngine;
 
 namespace Game.Gameplay.Items
 {
-    /// <summary>Drops whatever a client was holding the moment it disconnects, instead of
-    /// leaving an item stuck "held" by someone who is no longer there.</summary>
     public class ItemSessionCleanup : MonoBehaviour
     {
         IConnectionService _connection;

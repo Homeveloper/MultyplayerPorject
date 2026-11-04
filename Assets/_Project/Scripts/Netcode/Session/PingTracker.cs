@@ -5,11 +5,7 @@ using UnityEngine;
 
 namespace Game.Netcode
 {
-    /// <summary>
-    /// Application-level RTT measurement via an RPC round trip. Deliberately transport-agnostic
-    /// (works identically over Unity Transport or Steam P2P) instead of reading a
-    /// transport-specific counter, so swapping transports never touches this.
-    /// </summary>
+    // app-level RTT via RPC round trip - works the same on Unity Transport or Steam P2P
     public class PingTracker : NetworkBehaviour, IPingProvider
     {
         const float IntervalSeconds = 2f;

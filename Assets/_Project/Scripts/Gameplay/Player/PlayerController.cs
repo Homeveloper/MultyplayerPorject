@@ -4,14 +4,9 @@ using UnityEngine.InputSystem;
 
 namespace Game.Gameplay.Player
 {
-    /// <summary>
-    /// Owner-authoritative movement: only the owning client reads input and moves its
-    /// own CharacterController; a NetworkTransform (configured as owner-authoritative in
-    /// the prefab) replicates the result. Chosen over server-authoritative + prediction
-    /// because this is a cooperative, non-competitive prototype - there is no incentive
-    /// to cheat movement, so the extra complexity of server reconciliation isn't worth it
-    /// (see README "Networking decisions" for the full rationale).
-    /// </summary>
+    // Owner-authoritative movement - only the owning client reads input, NetworkTransform
+    // on the prefab replicates it. No real reason to bother with server reconciliation here,
+    // it's co-op, not competitive.
     [RequireComponent(typeof(CharacterController))]
     public class PlayerController : NetworkBehaviour
     {
@@ -23,8 +18,12 @@ namespace Game.Gameplay.Player
 
         static readonly Color[] _palette = { Color.white, Color.red, Color.green, Color.blue, Color.yellow, Color.magenta };
 
+        // lets local-only UI (Tab player list) grab the owning player without an RPC round-trip
+        public static PlayerController LocalInstance { get; private set; }
+
         CharacterController _controller;
         PlayerNetworkIdentity _identity;
+        InputActionMap _playerMap;
         InputAction _move;
         InputAction _look;
         InputAction _changeColor;
@@ -46,26 +45,35 @@ namespace Game.Gameplay.Player
                 return;
             }
 
-            var map = _inputActions.FindActionMap("Player", throwIfNotFound: false);
-            _move = map?.FindAction("Move");
-            _look = map?.FindAction("Look");
-            _changeColor = map?.FindAction("ChangeColor");
+            _playerMap = _inputActions.FindActionMap("Player", throwIfNotFound: false);
+            _move = _playerMap?.FindAction("Move");
+            _look = _playerMap?.FindAction("Look");
+            _changeColor = _playerMap?.FindAction("ChangeColor");
             _inputActions.Enable();
 
             if (_camera != null) _camera.gameObject.SetActive(true);
 
-            // Locking the cursor also keeps the Game view reliably focused for keyboard/mouse
-            // input - without this, hotkeys can silently stop registering after a UI click
-            // (e.g. the Lobby's Start button) moved focus away from the game view.
+            // also keeps the game view focused, otherwise hotkeys stop working after a UI click
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
+
+            LocalInstance = this;
         }
 
         public override void OnNetworkDespawn()
         {
             if (!IsOwner) return;
+            if (LocalInstance == this) LocalInstance = null;
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
+        }
+
+        // used while Tab is held so you can't move/throw/etc while reading the roster
+        public void SetControlsEnabled(bool enabled)
+        {
+            if (_playerMap == null) return;
+            if (enabled) _playerMap.Enable();
+            else _playerMap.Disable();
         }
 
         void Update()
@@ -93,11 +101,7 @@ namespace Game.Gameplay.Player
             }
         }
 
-        /// <summary>CharacterController doesn't push Rigidbodies on its own - without this, the
-        /// player just walks through (or, with enough step height, over) anything it bumps
-        /// into. Detected locally by the owner (who's the one actually moving), applied on the
-        /// server (see PhysicsItem.ServerApplyPush) so the push is simulated once and every
-        /// client sees the same result.</summary>
+        // CharacterController doesn't push rigidbodies by itself - push server-side so everyone sees the same result
         void OnControllerColliderHit(ControllerColliderHit hit)
         {
             if (!IsOwner) return;

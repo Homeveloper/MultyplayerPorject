@@ -2,10 +2,7 @@ using System;
 
 namespace Game.Core
 {
-    /// <summary>
-    /// Transport-agnostic player identity. Backed by a locally-persisted GUID for
-    /// IP connections, or a SteamID64 string for Steam connections.
-    /// </summary>
+    // GUID for IP connections, SteamID64 string for Steam
     public readonly struct PlayerId : IEquatable<PlayerId>
     {
         public string Value { get; }

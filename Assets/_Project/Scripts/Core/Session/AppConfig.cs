@@ -2,12 +2,8 @@ using UnityEngine;
 
 namespace Game.Core
 {
-    /// <summary>
-    /// Single source of truth for "which transport, which port, how many players".
-    /// This is the one place that picks the transport (see plan: "transport selection
-    /// lives in one place"); CLI args in Bootstrap may override the serialized values
-    /// at runtime without touching this asset.
-    /// </summary>
+    // which transport, which port, how many players - the one place that picks all this.
+    // CLI args override the serialized values at runtime without touching the asset.
     [CreateAssetMenu(fileName = "AppConfig", menuName = "Game/App Config")]
     public class AppConfig : ScriptableObject
     {

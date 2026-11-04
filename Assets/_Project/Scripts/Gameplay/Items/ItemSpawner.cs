@@ -3,10 +3,7 @@ using UnityEngine;
 
 namespace Game.Gameplay.Items
 {
-    /// <summary>Server-side spawning for player-created items. Spawned items are owned by
-    /// the server (not the creator), so they persist after the creator disconnects. A plain
-    /// MonoBehaviour (not NetworkBehaviour) - it isn't itself a replicated object, it just
-    /// performs spawn logic, so it needs no NetworkObject on its own GameObject.</summary>
+    // server-owned spawning for player-created items, so they survive the creator disconnecting
     public class ItemSpawner : MonoBehaviour
     {
         public static ItemSpawner Instance { get; private set; }
@@ -17,7 +14,6 @@ namespace Game.Gameplay.Items
 
         void Awake() => Instance = this;
 
-        /// <summary>Server-only.</summary>
         public void ServerSpawnItemInFrontOf(Transform origin)
         {
             if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer) return;

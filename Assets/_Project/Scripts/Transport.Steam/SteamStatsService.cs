@@ -1,6 +1,3 @@
-// Compiled only once the Steamworks SDK (Facepunch.Steamworks + steam_api64.dll) and the
-// community Steam P2P transport package have been added - see README "Steam setup".
-// Define GAME_STEAM_SDK in Project Settings > Player > Scripting Define Symbols to enable.
 #if GAME_STEAM_SDK
 using System.Collections.Generic;
 using Game.Core;
@@ -9,11 +6,7 @@ using UnityEngine;
 
 namespace Game.Transport.Steam
 {
-    /// <summary>
-    /// Writes to this machine's own Steam account stats - called locally wherever the
-    /// triggering event happens (e.g. the throwing client increments "items_thrown"),
-    /// never routed through the host. StoreStats is debounced to avoid spamming Steam.
-    /// </summary>
+    // writes to this machine's own Steam stats; StoreStats debounced so we don't spam Steam
     public class SteamStatsService : IStatsService
     {
         readonly Dictionary<string, int> _pending = new();

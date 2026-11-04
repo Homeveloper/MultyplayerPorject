@@ -3,7 +3,6 @@ using UnityEngine;
 
 namespace Game.Netcode
 {
-    /// <summary>Sent by the client as NetworkConfig.ConnectionData; read by the host's approval callback.</summary>
     [Serializable]
     public class ConnectionPayload
     {

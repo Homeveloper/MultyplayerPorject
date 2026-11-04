@@ -5,7 +5,6 @@ using UnityEngine;
 
 namespace Game.Netcode
 {
-    /// <summary>Wire format for <see cref="NetworkList{T}"/> replication of the player roster.</summary>
     public struct NetworkPlayerInfo : INetworkSerializable, IEquatable<NetworkPlayerInfo>
     {
         public ulong ClientId;

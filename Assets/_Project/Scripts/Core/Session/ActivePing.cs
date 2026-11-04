@@ -1,7 +1,6 @@
 namespace Game.Core
 {
-    /// <summary>Same pattern as <see cref="ActiveSession"/>: points at whichever NGO-spawned
-    /// PingTracker is live, since it can't be a DI-registered singleton (NGO owns its lifecycle).</summary>
+    // same deal as ActiveSession - PingTracker is NGO-owned so it can't be a DI singleton
     public static class ActivePing
     {
         public static IPingProvider Current { get; set; }

@@ -1,10 +1,6 @@
 namespace Game.Core
 {
-    /// <summary>
-    /// Where the local player's persistent identity and display name come from.
-    /// IP mode: a GUID persisted locally (PlayerPrefs). Steam mode: the SteamID
-    /// and Steam persona name. Used for duplicate-player checks on approval.
-    /// </summary>
+    // IP mode: GUID. Steam mode: SteamID + persona name. Used for dupe checks on approval.
     public interface IPlayerIdentityProvider
     {
         PlayerId GetLocalPlayerId();

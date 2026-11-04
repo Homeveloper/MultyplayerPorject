@@ -1,0 +1,2 @@
+MultyplayerPorject_tmp.exe -transport steam
+pause

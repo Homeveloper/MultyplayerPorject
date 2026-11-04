@@ -6,7 +6,8 @@
         "Unity.Netcode.Runtime",
         "Unity.InputSystem",
         "Unity.Collections",
-        "VContainer"
+        "VContainer",
+        "Unity.TextMeshPro"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

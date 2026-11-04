@@ -7,11 +7,8 @@ using UnityEngine;
 
 namespace Game.Netcode
 {
-    /// <summary>
-    /// Server-authoritative player roster, replicated to everyone (including late
-    /// joiners automatically, since NetworkList state syncs on spawn). Also owns the
-    /// "Start" trigger the host uses to leave the lobby and load the game scene.
-    /// </summary>
+    // server-authoritative player roster, syncs to everyone including late joiners via NetworkList.
+    // also owns the Start trigger that moves everyone into GameLevel.
     public class LobbySessionController : NetworkBehaviour, ISessionController
     {
         public static LobbySessionController Instance { get; private set; }
@@ -106,8 +103,8 @@ namespace Game.Netcode
             var entry = new NetworkPlayerInfo
             {
                 ClientId = clientId,
-                PlayerId = new FixedString64Bytes(playerId),
-                Name = new FixedString64Bytes(name),
+                PlayerId = ToFixedString64Safe(playerId),
+                Name = ToFixedString64Safe(name),
                 Color = Color.white,
                 IsHost = clientId == NetworkManager.ServerClientId
             };
@@ -119,6 +116,17 @@ namespace Game.Netcode
                 return;
             }
             _players.Add(entry);
+        }
+
+        // FixedString64Bytes throws on overflow, and Steam display names can have emoji/CJK that
+        // blow past ~61 bytes - caught this crashing the whole roster for one long name, so truncate.
+        static FixedString64Bytes ToFixedString64Safe(string value)
+        {
+            if (string.IsNullOrEmpty(value)) return default;
+            const int maxBytes = 60; // a few bytes of slack under the ~61-byte capacity
+            while (System.Text.Encoding.UTF8.GetByteCount(value) > maxBytes && value.Length > 0)
+                value = value[..^1];
+            return new FixedString64Bytes(value);
         }
 
         public void SetColor(ulong clientId, Color color)
@@ -134,12 +142,26 @@ namespace Game.Netcode
             }
         }
 
-        /// <summary>Only ever called on the host (the Start button is hidden for clients), so a
-        /// plain authority check is enough - no RPC hop needed since host == server here.</summary>
+        // only ever called on the host, Start is hidden for clients - plain check, no RPC hop needed
         public void RequestStart()
         {
             if (!IsServer) return;
             StartRequestedByHost?.Invoke();
+        }
+
+        // tells the target client why *before* the host disconnects them - see KickClient() in
+        // NetcodeConnectionService for why this can't just rely on NGO's own disconnect reason
+        public void NotifyKicked(ulong clientId)
+        {
+            if (!IsServer) return;
+            var target = new RpcParams { Send = new RpcSendParams { Target = RpcTarget.Single(clientId, RpcTargetUse.Temp) } };
+            NotifyKickedRpc(target);
+        }
+
+        [Rpc(SendTo.SpecifiedInParams)]
+        void NotifyKickedRpc(RpcParams rpcParams = default)
+        {
+            GameServices.Current.Resolve<IConnectionService>().NoteLocalKickReceived();
         }
     }
 }

@@ -1,29 +1,41 @@
 using Game.Core;
+using TMPro;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Game.Gameplay.UI
 {
-    /// <summary>Renders the roster from <see cref="ActiveSession"/> (ping + kick button for the
-    /// host, both bonus features). Used in the lobby screen and the in-game player
-    /// list / pause panel.</summary>
+    // renders the roster from ActiveSession - ping + kick (host only). Used in both the lobby
+    // screen and the in-game Tab panel.
     public class PlayerListPanelController : MonoBehaviour
     {
         [SerializeField] Transform _rowContainer;
         [SerializeField] GameObject _rowPrefab; // Text "name — ping ms" + optional Kick Button
 
+        ISessionController _subscribedSession;
+
         void OnEnable()
         {
-            if (ActiveSession.Current != null)
-                ActiveSession.Current.Changed += Refresh;
-            Refresh();
+            // the roster NetworkObject can spawn/sync after this OnEnable already ran, so a
+            // one-shot Current read would leave a joining player with an empty list forever
+            ActiveSession.Changed += OnSessionChanged;
+            OnSessionChanged();
         }
 
         void OnDisable()
         {
-            if (ActiveSession.Current != null)
-                ActiveSession.Current.Changed -= Refresh;
+            ActiveSession.Changed -= OnSessionChanged;
+            if (_subscribedSession != null) _subscribedSession.Changed -= Refresh;
+            _subscribedSession = null;
+        }
+
+        void OnSessionChanged()
+        {
+            if (_subscribedSession != null) _subscribedSession.Changed -= Refresh;
+            _subscribedSession = ActiveSession.Current;
+            if (_subscribedSession != null) _subscribedSession.Changed += Refresh;
+            Refresh();
         }
 
         void Refresh()
@@ -40,7 +52,7 @@ namespace Game.Gameplay.UI
             {
                 var row = Instantiate(_rowPrefab, _rowContainer);
                 var rtt = ping?.GetRttMilliseconds(player.ClientId) ?? 0f;
-                var label = row.GetComponentInChildren<Text>();
+                var label = row.GetComponentInChildren<TMP_Text>();
                 if (label != null)
                     label.text = $"{player.Name}{(player.IsHost ? " (Host)" : string.Empty)} - {rtt:0}ms";
 
@@ -56,8 +68,10 @@ namespace Game.Gameplay.UI
 
         void Kick(ulong clientId)
         {
+            // routed through IConnectionService (not NetworkManager directly) so the kick is
+            // also remembered for the session - lets the host's ApprovalHandler reject a rejoin
             if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsHost)
-                NetworkManager.Singleton.DisconnectClient(clientId, DisconnectReason.Kicked);
+                GameServices.Current.Resolve<IConnectionService>().KickClient(clientId);
         }
     }
 }

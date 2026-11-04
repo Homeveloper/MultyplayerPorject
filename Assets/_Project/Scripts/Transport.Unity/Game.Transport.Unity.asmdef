@@ -4,7 +4,8 @@
     "references": [
         "Game.Core",
         "Unity.Netcode.Runtime",
-        "Unity.Networking.Transport"
+        "Unity.Networking.Transport",
+        "Unity.Multiplayer.Tools.NetworkSimulator.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

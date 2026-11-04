@@ -3,8 +3,7 @@ using Game.Core;
 
 namespace Game.Bootstrap
 {
-    /// <summary>Parses `-transport steam|ip`, `-port <n>`, `-ip <address>` so transport
-    /// choice can be overridden per-launch without touching AppConfig.</summary>
+    // -transport steam|ip, -port <n>, -ip <address>
     public static class CommandLineArgsParser
     {
         public static void ApplyOverrides(AppConfig config)

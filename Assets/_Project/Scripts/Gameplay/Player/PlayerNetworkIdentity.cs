@@ -4,7 +4,6 @@ using UnityEngine;
 
 namespace Game.Gameplay.Player
 {
-    /// <summary>Replicated identity/appearance of a player - name (server-set) and color (owner-settable, bonus feature).</summary>
     [RequireComponent(typeof(NetworkObject))]
     public class PlayerNetworkIdentity : NetworkBehaviour
     {
@@ -41,9 +40,7 @@ namespace Game.Gameplay.Player
             _visualRenderer.SetPropertyBlock(_propertyBlock);
         }
 
-        /// <summary>Hotkey-driven color change (bonus feature) - owner writes directly, no RPC needed
-        /// since the NetworkVariable already has owner write permission; replicates to everyone,
-        /// including late joiners, automatically.</summary>
+        // owner writes directly, no RPC needed - NetworkVariable already has owner write permission
         public void RequestColorChange(UnityEngine.Color color)
         {
             if (IsOwner) Color.Value = color;

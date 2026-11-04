@@ -1,27 +1,29 @@
+using Game.Core;
 using Unity.Netcode;
+using UnityEngine;
 
 namespace Game.Netcode
 {
-    /// <summary>
-    /// Spawns each client's 3D character only once the session reaches GameLevel - not at
-    /// connection/approval time, while the player is still in the Lobby UI. Also covers
-    /// late joiners who connect after GameLevel is already active.
-    /// </summary>
+    // spawns each client's character once GameLevel is reached, not at approval time - also
+    // handles late joiners connecting after GameLevel is already active
     public class PlayerSpawner
     {
         const string GameLevelSceneName = "GameLevel";
+        const float SpawnRadius = 3f;
 
         readonly NetworkManager _networkManager;
+        readonly AppConfig _config;
+        int _spawnIndex;
 
-        public PlayerSpawner(NetworkManager networkManager)
+        public PlayerSpawner(NetworkManager networkManager, AppConfig config)
         {
             _networkManager = networkManager;
+            _config = config;
         }
 
         public void Install()
         {
-            // NetworkManager.SceneManager only exists once networking has actually started, so
-            // that subscription is deferred to OnServerStarted instead of done here.
+            // SceneManager doesn't exist until networking actually starts
             _networkManager.OnServerStarted += OnServerStarted;
             _networkManager.OnClientConnectedCallback += OnClientConnected;
         }
@@ -49,9 +51,7 @@ namespace Game.Netcode
 
         void OnClientConnected(ulong clientId)
         {
-            // Covers a late joiner connecting while GameLevel is already the active scene -
-            // clients who load together with the host's scene switch are handled above instead.
-            if (!_networkManager.IsServer) return;
+            if (!_networkManager.IsServer) return; // late joiner into an already-active GameLevel
             if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name == GameLevelSceneName)
                 SpawnIfNeeded(clientId);
         }
@@ -64,8 +64,22 @@ namespace Game.Netcode
             var prefab = _networkManager.NetworkConfig.PlayerPrefab;
             if (prefab == null) return;
 
-            var go = UnityEngine.Object.Instantiate(prefab);
+            var (position, rotation) = NextSpawnTransform();
+            var go = UnityEngine.Object.Instantiate(prefab, position, rotation);
             go.GetComponent<NetworkObject>().SpawnAsPlayerObject(clientId);
+        }
+
+        // spreads players evenly around a circle facing the center, so 2 players spawn opposite
+        // each other instead of stacked on the same spot
+        (Vector3 position, Quaternion rotation) NextSpawnTransform()
+        {
+            int slots = Mathf.Max(_config.MaxPlayers, 1);
+            float angleRad = (_spawnIndex % slots) * (360f / slots) * Mathf.Deg2Rad;
+            _spawnIndex++;
+
+            var position = new Vector3(Mathf.Sin(angleRad), 0f, Mathf.Cos(angleRad)) * SpawnRadius;
+            var rotation = Quaternion.LookRotation(-position.normalized, Vector3.up);
+            return (position, rotation);
         }
     }
 }

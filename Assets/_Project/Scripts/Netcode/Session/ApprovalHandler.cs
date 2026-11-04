@@ -5,15 +5,13 @@ using UnityEngine;
 
 namespace Game.Netcode
 {
-    /// <summary>
-    /// Host-side connection approval: player limit, build version match, duplicate
-    /// PlayerId rejection. Installed on the host's NetworkManager by CompositionRoot.
-    /// </summary>
+    // host-side approval: player limit, version match, duplicate PlayerId rejection
     public class ApprovalHandler
     {
         readonly NetworkManager _networkManager;
         readonly AppConfig _config;
         readonly HashSet<string> _connectedPlayerIds = new();
+        readonly HashSet<string> _kickedPlayerIds = new();
         readonly Dictionary<ulong, ConnectionPayload> _approvedPayloads = new();
 
         public ApprovalHandler(NetworkManager networkManager, AppConfig config)
@@ -33,6 +31,7 @@ namespace Game.Netcode
             _networkManager.ConnectionApprovalCallback = null;
             _networkManager.OnClientDisconnectCallback -= OnDisconnect;
             _connectedPlayerIds.Clear();
+            _kickedPlayerIds.Clear();
         }
 
         void Approve(NetworkManager.ConnectionApprovalRequest request, NetworkManager.ConnectionApprovalResponse response)
@@ -64,6 +63,12 @@ namespace Game.Netcode
                 return;
             }
 
+            if (!string.IsNullOrEmpty(payload.PlayerId) && _kickedPlayerIds.Contains(payload.PlayerId))
+            {
+                Reject(response, DisconnectReason.Kicked);
+                return;
+            }
+
             if (!string.IsNullOrEmpty(payload.PlayerId))
                 _connectedPlayerIds.Add(payload.PlayerId);
             _approvedPayloads[request.ClientNetworkId] = payload;
@@ -78,6 +83,14 @@ namespace Game.Netcode
 
         public bool TryGetApprovedPayload(ulong clientId, out ConnectionPayload payload) =>
             _approvedPayloads.TryGetValue(clientId, out payload);
+
+        // must run before NetworkManager.DisconnectClient() - that triggers OnDisconnect below,
+        // which erases the payload this needs to resolve the clientId to a PlayerId
+        public void MarkKicked(ulong clientId)
+        {
+            if (_approvedPayloads.TryGetValue(clientId, out var payload) && payload != null && !string.IsNullOrEmpty(payload.PlayerId))
+                _kickedPlayerIds.Add(payload.PlayerId);
+        }
 
         void Reject(NetworkManager.ConnectionApprovalResponse response, string reason)
         {

@@ -5,13 +5,7 @@ using UnityEngine.InputSystem;
 
 namespace Game.Gameplay.Items
 {
-    /// <summary>
-    /// Player-side hotkeys for spawn/pickup/drop/throw. Every request is a ServerRpc;
-    /// the host (PhysicsItem/ItemSpawner) is the only one that decides whether it
-    /// succeeds and is the only writer of the item's transform (see PhysicsItem) -
-    /// while holding, this sends the hand anchor's pose each frame for the server to
-    /// apply, instead of writing the item's transform directly.
-    /// </summary>
+    // hotkeys for spawn/pickup/drop/throw - every request is a ServerRpc, host decides what succeeds
     public class PlayerItemHolder : NetworkBehaviour
     {
         [SerializeField] Transform _handAnchor;
@@ -19,7 +13,7 @@ namespace Game.Gameplay.Items
         [SerializeField] InputActionAsset _inputActions;
 
         PhysicsItem _heldItem;
-        InputAction _spawn, _interact, _throw;
+        InputAction _spawn, _interact, _throw, _delete;
         IStatsService _stats;
 
         public override void OnNetworkSpawn()
@@ -32,6 +26,7 @@ namespace Game.Gameplay.Items
             _spawn = map?.FindAction("Spawn");
             _interact = map?.FindAction("Interact");
             _throw = map?.FindAction("Throw");
+            _delete = map?.FindAction("Delete");
             _inputActions.Enable();
         }
 
@@ -60,6 +55,10 @@ namespace Game.Gameplay.Items
                 {
                     RequestThrowServerRpc(transform.forward * _throwForce + Vector3.up * (_throwForce * 0.3f));
                     _stats?.Increment("items_thrown"); // fired locally, on the throwing client - not routed through the host
+                }
+                else if (_delete != null && _delete.WasPressedThisFrame())
+                {
+                    RequestDeleteServerRpc();
                 }
             }
         }
@@ -113,8 +112,13 @@ namespace Game.Gameplay.Items
             FindServerHeldItem(rpcParams.Receive.SenderClientId)?.ServerThrow(velocity);
         }
 
-        /// <summary>Server-side lookup, trusting only the RPC sender's own clientId (never a
-        /// client-supplied id) for "which item is this caller holding".</summary>
+        [Rpc(SendTo.Server)]
+        void RequestDeleteServerRpc(RpcParams rpcParams = default)
+        {
+            FindServerHeldItem(rpcParams.Receive.SenderClientId)?.ServerDelete();
+        }
+
+        // trusts only the RPC sender's own clientId, never one passed in from the client
         static PhysicsItem FindServerHeldItem(ulong clientId)
         {
             foreach (var item in FindObjectsByType<PhysicsItem>(FindObjectsSortMode.None))

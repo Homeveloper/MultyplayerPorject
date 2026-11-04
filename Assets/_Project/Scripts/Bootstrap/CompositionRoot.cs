@@ -12,16 +12,9 @@ using VContainer.Unity;
 
 namespace Game.Bootstrap
 {
-    /// <summary>
-    /// The one place that decides which transport/identity/lobby/stats implementation
-    /// gets wired up, based on <see cref="AppConfig"/> (and its CLI overrides). Lives on
-    /// a persistent object in the Bootstrap scene, which is loaded first and never unloaded.
-    ///
-    /// Steam support compiles only when GAME_STEAM_SDK is defined (Project Settings >
-    /// Player > Scripting Define Symbols) - set once Facepunch.Steamworks, steam_api64.dll
-    /// and the community Steam P2P transport package are added (see README "Steam setup").
-    /// Without it, every build simply runs on Unity Transport.
-    /// </summary>
+    // decides which transport/identity/lobby/stats impl gets wired up based on AppConfig.
+    // Steam stuff only compiles with GAME_STEAM_SDK defined (needs Facepunch.Steamworks +
+    // steam_api64.dll + the community transport package) - without it we just run on IP.
     public class CompositionRoot : LifetimeScope
     {
         [SerializeField] AppConfig _config;
@@ -59,7 +52,7 @@ namespace Game.Bootstrap
 
             var flow = new GameObject("SessionFlowController").AddComponent<SessionFlowController>();
             DontDestroyOnLoad(flow.gameObject);
-            flow.Construct(Container.Resolve<IConnectionService>());
+            flow.Construct(Container.Resolve<IConnectionService>(), Container.Resolve<IPresenceService>());
 
             var cleanup = new GameObject("ItemSessionCleanup").AddComponent<Game.Gameplay.Items.ItemSessionCleanup>();
             DontDestroyOnLoad(cleanup.gameObject);
@@ -67,8 +60,6 @@ namespace Game.Bootstrap
 
             Container.Resolve<PlayerSpawner>().Install();
 
-            // Bootstrap holds no gameplay content of its own - once wired up, move straight to
-            // the menu. NetworkManager (this GameObject) persists via its own DontDestroyOnLoad.
             UnityEngine.SceneManagement.SceneManager.LoadScene("MainMenu");
         }
 
@@ -92,6 +83,7 @@ namespace Game.Bootstrap
                 builder.Register<SteamPlayerIdentityProvider>(Lifetime.Singleton).As<IPlayerIdentityProvider>();
                 builder.Register<SteamLobbyService>(Lifetime.Singleton).As<ILobbyService>();
                 builder.Register<SteamStatsService>(Lifetime.Singleton).As<IStatsService>();
+                builder.Register<SteamPresenceService>(Lifetime.Singleton).As<IPresenceService>();
 #endif
             }
             else
@@ -100,6 +92,7 @@ namespace Game.Bootstrap
                 builder.Register<LocalPlayerIdentityProvider>(Lifetime.Singleton).As<IPlayerIdentityProvider>();
                 builder.Register<NullLobbyService>(Lifetime.Singleton).As<ILobbyService>();
                 builder.Register<LoggingStatsService>(Lifetime.Singleton).As<IStatsService>();
+                builder.Register<NullPresenceService>(Lifetime.Singleton).As<IPresenceService>();
             }
 
             builder.Register<ApprovalHandler>(Lifetime.Singleton);

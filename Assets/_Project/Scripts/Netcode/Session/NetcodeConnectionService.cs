@@ -1,15 +1,12 @@
 using System;
+using System.Threading.Tasks;
 using Game.Core;
 using Unity.Netcode;
 using UnityEngine;
 
 namespace Game.Netcode
 {
-    /// <summary>
-    /// NGO implementation of <see cref="IConnectionService"/>. Wraps NetworkManager so
-    /// Gameplay/UI code never touches it directly - swapping netcode libraries means
-    /// swapping this one class.
-    /// </summary>
+    // NGO implementation of IConnectionService - wraps NetworkManager so Gameplay/UI never touch it directly
     public class NetcodeConnectionService : IConnectionService, IDisposable
     {
         readonly NetworkManager _networkManager;
@@ -18,6 +15,8 @@ namespace Game.Netcode
         readonly AppConfig _config;
         readonly ApprovalHandler _approval;
         readonly SessionObjectsPrefabRef _sessionObjects;
+        readonly ILobbyService _lobby;
+        bool _localKickPending;
 
         public bool IsHost => _networkManager.IsHost;
         public bool IsClient => _networkManager.IsClient;
@@ -33,7 +32,8 @@ namespace Game.Netcode
             IPlayerIdentityProvider identity,
             AppConfig config,
             ApprovalHandler approval,
-            SessionObjectsPrefabRef sessionObjects)
+            SessionObjectsPrefabRef sessionObjects,
+            ILobbyService lobby)
         {
             _networkManager = networkManager;
             _transport = transport;
@@ -41,43 +41,61 @@ namespace Game.Netcode
             _config = config;
             _approval = approval;
             _sessionObjects = sessionObjects;
+            _lobby = lobby;
 
             _networkManager.OnClientConnectedCallback += OnClientConnected;
             _networkManager.OnClientDisconnectCallback += OnClientDisconnect;
+            Application.quitting += OnApplicationQuitting; // best-effort: closes the Steam lobby on a graceful Alt+F4/quit
         }
 
         public void StartHost()
         {
-            _networkManager.NetworkConfig.ConnectionApproval = true;
-            _approval.Install();
-            _transport.ConfigureForHost(_config);
-            SetLocalPayload();
-            _networkManager.StartHost();
-
-            if (_sessionObjects?.Prefab != null)
+            try
             {
-                var go = UnityEngine.Object.Instantiate(_sessionObjects.Prefab);
-                var netObj = go.GetComponent<NetworkObject>();
-                netObj.DestroyWithScene = false; // must survive the MainMenu -> Lobby -> GameLevel scene loads
-                netObj.Spawn();
+                _networkManager.NetworkConfig.ConnectionApproval = true;
+                _approval.Install();
+                _transport.ConfigureForHost(_config);
+                SetLocalPayload();
+                _networkManager.StartHost();
+
+                if (_sessionObjects?.Prefab != null)
+                {
+                    var go = UnityEngine.Object.Instantiate(_sessionObjects.Prefab);
+                    var netObj = go.GetComponent<NetworkObject>();
+                    netObj.DestroyWithScene = false; // must survive the MainMenu -> Lobby -> GameLevel scene loads
+                    netObj.Spawn();
+                }
+            }
+            catch (Exception e)
+            {
+                // transport setup / Steamworks / NGO internals can all throw in ways we can't
+                // fully enumerate - turn it into a normal failed-connection message, not a crash
+                Debug.LogError($"[Connection] StartHost failed: {e}");
+                if (_networkManager.IsListening) _networkManager.Shutdown();
+                LocalDisconnected?.Invoke(DisconnectReason.LocalError);
             }
         }
 
         public void StartClient(ConnectRequest request)
         {
-            // A client that failed to connect once is left "listening" by NGO and refuses a
-            // second StartClient() until explicitly shut down - make retry-after-failure work.
-            if (_networkManager.IsListening) _networkManager.Shutdown();
+            try
+            {
+                // NGO leaves a failed client "listening" and refuses a second StartClient() otherwise
+                if (_networkManager.IsListening) _networkManager.Shutdown();
 
-            // NGO's connection handshake serializes differently on each end depending on this
-            // flag - it must match the host's (always true here), or the host reads the
-            // client's connection request as malformed ("Incomplete connection request
-            // message... NetworkConfig mismatch") and silently drops it.
-            _networkManager.NetworkConfig.ConnectionApproval = true;
+                // must match the host's flag or it reads our request as malformed and silently drops it
+                _networkManager.NetworkConfig.ConnectionApproval = true;
 
-            _transport.ConfigureForClient(_config, request.Address);
-            SetLocalPayload();
-            _networkManager.StartClient();
+                _transport.ConfigureForClient(_config, request.Address);
+                SetLocalPayload();
+                _networkManager.StartClient();
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[Connection] StartClient failed: {e}");
+                if (_networkManager.IsListening) _networkManager.Shutdown();
+                LocalDisconnected?.Invoke(DisconnectReason.LocalError);
+            }
         }
 
         public void HostLoadScene(string sceneName)
@@ -86,10 +104,36 @@ namespace Game.Netcode
             _networkManager.SceneManager.LoadScene(sceneName, UnityEngine.SceneManagement.LoadSceneMode.Single);
         }
 
+        public async void KickClient(ulong clientId)
+        {
+            if (!_networkManager.IsHost) return;
+            _approval.MarkKicked(clientId);
+
+            // tell them why first and give the Steam P2P relay real time to deliver it - the
+            // Facepunch transport can close the connection before NGO's own built-in
+            // DisconnectReasonMessage arrives, which is what caused "the host has left the
+            // session" to show up on a kick instead of the correct reason
+            LobbySessionController.Instance?.NotifyKicked(clientId);
+            await Task.Delay(300);
+
+            _networkManager.DisconnectClient(clientId, DisconnectReason.Kicked);
+        }
+
+        public void NoteLocalKickReceived() => _localKickPending = true;
+
         public void Shutdown()
         {
-            if (_networkManager.IsServer) _approval.Uninstall();
+            if (_networkManager.IsServer)
+            {
+                _approval.Uninstall();
+                _lobby.CloseLobbyOnHostLeave();
+            }
             _networkManager.Shutdown();
+        }
+
+        void OnApplicationQuitting()
+        {
+            if (_networkManager.IsServer) _lobby.CloseLobbyOnHostLeave();
         }
 
         void SetLocalPayload()
@@ -114,7 +158,9 @@ namespace Game.Netcode
         {
             if (clientId == _networkManager.LocalClientId && !_networkManager.IsHost)
             {
-                var reason = _networkManager.DisconnectReason;
+                // prefer the kick notice from NotifyKickedRpc - it beat the race against
+                // NetworkManager.DisconnectReason on the Steam transport, see KickClient() above
+                var reason = _localKickPending ? DisconnectReason.Kicked : _networkManager.DisconnectReason;
                 LocalDisconnected?.Invoke(string.IsNullOrEmpty(reason) ? DisconnectReason.HostLeft : reason);
                 return;
             }
@@ -124,6 +170,7 @@ namespace Game.Netcode
 
         public void Dispose()
         {
+            Application.quitting -= OnApplicationQuitting;
             if (_networkManager == null) return;
             _networkManager.OnClientConnectedCallback -= OnClientConnected;
             _networkManager.OnClientDisconnectCallback -= OnClientDisconnect;

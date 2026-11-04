@@ -3,7 +3,6 @@ using System.Collections.Generic;
 
 namespace Game.Core
 {
-    /// <summary>Read-only, replicated view of everyone in the current session (lobby or in-game).</summary>
     public interface IPlayerRegistry
     {
         IReadOnlyList<PlayerInfo> Players { get; }

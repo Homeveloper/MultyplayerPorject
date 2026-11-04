@@ -4,14 +4,8 @@ using UnityEngine;
 
 namespace Game.Gameplay.Items
 {
-    /// <summary>
-    /// A grabbable physics prop. Always server-owned; the server is the only writer of
-    /// its NetworkTransform, for its whole lifetime - while held, the holder's client
-    /// sends where its hand anchor is (via PlayerItemHolder's RPC) and the server
-    /// applies that to the item's transform; on drop/throw the server runs the physics
-    /// simulation itself. Every client therefore sees the same position stream from one
-    /// source, so there is nothing to reconcile and no teleport when it lands.
-    /// </summary>
+    // Grabbable prop, always server-owned. Server writes the NetworkTransform the whole time -
+    // while held it just applies the hand anchor pose sent by the holder's client.
     [RequireComponent(typeof(Rigidbody))]
     [RequireComponent(typeof(NetworkTransform))]
     public class PhysicsItem : NetworkBehaviour
@@ -32,10 +26,7 @@ namespace Game.Gameplay.Items
 
         public override void OnNetworkSpawn()
         {
-            // Runs on every peer (server and all clients), each with its own local physics
-            // world - every one of them needs to stop colliding with the item while it's
-            // held, or its collider overlapping the holder's CharacterController pushes the
-            // player around as the item follows the hand each frame.
+            // without this the held item's collider pushes the holder's CharacterController around
             IsHeld.OnValueChanged += OnHeldChanged;
             ApplyColliderState(IsHeld.Value);
         }
@@ -49,12 +40,10 @@ namespace Game.Gameplay.Items
             if (_collider != null) _collider.enabled = !held;
         }
 
-        /// <summary>Server-only: validates and performs a pickup. Returns false (no state change,
-        /// no desync) if the item was already held or the requester is out of range.</summary>
         public bool ServerTryPickup(ulong requesterClientId)
         {
             if (!IsServer) return false;
-            if (IsHeld.Value) return false; // race: whoever's request lands first on the server wins
+            if (IsHeld.Value) return false; // whoever lands first on the server wins the race
 
             if (NetworkManager.ConnectedClients.TryGetValue(requesterClientId, out var client) && client.PlayerObject != null)
             {
@@ -65,27 +54,22 @@ namespace Game.Gameplay.Items
             IsHeld.Value = true;
             HolderClientId.Value = requesterClientId;
             _rigidbody.isKinematic = true;
+            NetworkObject.ChangeOwnership(requesterClientId);
             return true;
         }
 
-        /// <summary>Server-only: the current holder's hand-anchor pose, applied each frame while
-        /// held - validated by caller identity (see PlayerItemHolder), trusted on position since
-        /// this is a cooperative prototype with no incentive to cheat a carried prop's pose.</summary>
         public void ServerUpdateHeldPose(Vector3 position, Quaternion rotation)
         {
             if (!IsServer || !IsHeld.Value) return;
             transform.SetPositionAndRotation(position, rotation);
         }
 
-        /// <summary>Server-only: the holder let go without throwing - falls where it is.</summary>
         public void ServerRelease()
         {
             if (!IsServer || !IsHeld.Value) return;
             ReturnToFreePhysics();
         }
 
-        /// <summary>Server-only: applies the throw velocity. Simulated only here, on the host, so
-        /// every client sees the same trajectory and landing point.</summary>
         public void ServerThrow(Vector3 velocity)
         {
             if (!IsServer || !IsHeld.Value) return;
@@ -98,23 +82,27 @@ namespace Game.Gameplay.Items
             IsHeld.Value = false;
             HolderClientId.Value = ulong.MaxValue;
             _rigidbody.isKinematic = false;
+            if (NetworkObject.OwnerClientId != NetworkManager.ServerClientId)
+                NetworkObject.ChangeOwnership(NetworkManager.ServerClientId);
         }
 
-        /// <summary>Server-only: called when the holder disconnects mid-hold - drop in place instead of
-        /// leaving the item stuck "held" by a client that no longer exists.</summary>
+        // holder disconnected mid-carry - drop it instead of leaving it stuck "held" forever
         public void ServerForceReleaseIfHeldBy(ulong clientId)
         {
             if (IsServer && IsHeld.Value && HolderClientId.Value == clientId)
                 ReturnToFreePhysics();
         }
 
-        /// <summary>Server-only: a walking player's CharacterController bumped into this item -
-        /// nudge it along the ground instead of the player walking through/over it, simulated
-        /// only here so every client sees the same push.</summary>
         public void ServerApplyPush(Vector3 horizontalVelocity)
         {
             if (!IsServer || IsHeld.Value) return;
             _rigidbody.linearVelocity = new Vector3(horizontalVelocity.x, _rigidbody.linearVelocity.y, horizontalVelocity.z);
+        }
+
+        public void ServerDelete()
+        {
+            if (!IsServer || !IsHeld.Value) return;
+            NetworkObject.Despawn(true);
         }
     }
 }

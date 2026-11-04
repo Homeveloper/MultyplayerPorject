@@ -2,7 +2,6 @@ using UnityEngine;
 
 namespace Game.Core
 {
-    /// <summary>Snapshot of a player as shown in lobby / in-session player list UI.</summary>
     public struct PlayerInfo
     {
         public ulong ClientId;

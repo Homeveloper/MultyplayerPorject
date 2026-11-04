@@ -1,24 +1,22 @@
-// Compiled only once the Steamworks SDK (Facepunch.Steamworks + steam_api64.dll) and the
-// community Steam P2P transport package have been added - see README "Steam setup".
-// Define GAME_STEAM_SDK in Project Settings > Player > Scripting Define Symbols to enable.
+// needs GAME_STEAM_SDK defined (Steamworks + steam_api64.dll + the community transport package)
 #if GAME_STEAM_SDK
 using Game.Core;
 using Netcode.Transports.Facepunch;
-using Steamworks;
 using Unity.Netcode;
 
 namespace Game.Transport.Steam
 {
-    /// <summary>Configures NGO's Facepunch Steam P2P transport (Steam Datagram Relay) - no IP/port needed.</summary>
     public class SteamTransportInstaller : ITransportConfigurator
     {
         readonly NetworkManager _networkManager;
+        readonly SteamBootstrap _steamBootstrap;
 
         public TransportType Type => TransportType.SteamP2P;
 
-        public SteamTransportInstaller(NetworkManager networkManager)
+        public SteamTransportInstaller(NetworkManager networkManager, SteamBootstrap steamBootstrap)
         {
             _networkManager = networkManager;
+            _steamBootstrap = steamBootstrap;
         }
 
         FacepunchTransport Transport
@@ -38,13 +36,16 @@ namespace Game.Transport.Steam
 
         public void ConfigureForHost(AppConfig config)
         {
-            // Host listens for Steam P2P connections; no explicit target needed.
+            _steamBootstrap.EnsureValid();
+            _ = Transport; // getter has to run once or NetworkTransport stays null and StartHost() throws
         }
 
         public void ConfigureForClient(AppConfig config, string joinTarget)
         {
-            if (ulong.TryParse(joinTarget, out var steamId))
-                Transport.targetSteamId = steamId;
+            _steamBootstrap.EnsureValid();
+            var transport = Transport; // same as above - create it even if the SteamID parse below fails
+            if (ulong.TryParse(joinTarget?.Trim(), out var steamId))
+                transport.targetSteamId = steamId;
         }
     }
 }

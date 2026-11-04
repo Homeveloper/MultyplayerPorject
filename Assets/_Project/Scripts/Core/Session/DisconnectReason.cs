@@ -1,6 +1,5 @@
 namespace Game.Core
 {
-    /// <summary>Machine-readable reasons sent to a rejected/kicked client, shown as human text by the UI.</summary>
     public static class DisconnectReason
     {
         public const string SessionFull = "session_full";
@@ -9,6 +8,7 @@ namespace Game.Core
         public const string ConnectionTimeout = "connection_timeout";
         public const string Kicked = "kicked";
         public const string HostLeft = "host_left";
+        public const string LocalError = "local_error";
 
         public static string ToDisplayText(string reason) => reason switch
         {
@@ -18,6 +18,7 @@ namespace Game.Core
             ConnectionTimeout => "Connection timed out.",
             Kicked => "You were kicked by the host.",
             HostLeft => "The host has left the session.",
+            LocalError => "Could not connect - check Steam is running and try again.",
             _ => string.IsNullOrEmpty(reason) ? "Disconnected." : reason
         };
     }

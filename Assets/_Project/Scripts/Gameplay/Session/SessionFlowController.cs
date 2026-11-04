@@ -4,21 +4,19 @@ using UnityEngine.SceneManagement;
 
 namespace Game.Gameplay.Session
 {
-    /// <summary>
-    /// Persistent (DontDestroyOnLoad) watcher that reacts to connection loss:
-    /// host left / we got rejected / we got kicked -> drop back to MainMenu with
-    /// a human-readable reason. Host migration is explicitly out of scope per the brief.
-    /// </summary>
+    // persistent watcher - host left / rejected / kicked -> back to MainMenu with a reason
     public class SessionFlowController : MonoBehaviour
     {
         public const string MainMenuScene = "MainMenu";
 
         IConnectionService _connection;
+        IPresenceService _presence;
         public static string LastDisconnectReason { get; private set; }
 
-        public void Construct(IConnectionService connection)
+        public void Construct(IConnectionService connection, IPresenceService presence)
         {
             _connection = connection;
+            _presence = presence;
             _connection.LocalDisconnected += OnLocalDisconnected;
         }
 
@@ -30,6 +28,7 @@ namespace Game.Gameplay.Session
         void OnLocalDisconnected(string reason)
         {
             LastDisconnectReason = DisconnectReason.ToDisplayText(reason);
+            _presence?.Clear();
             if (SceneManager.GetActiveScene().name != MainMenuScene)
                 SceneManager.LoadScene(MainMenuScene, LoadSceneMode.Single);
         }
