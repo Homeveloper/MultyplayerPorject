@@ -48,9 +48,6 @@ instead, and falls back to Unity Transport if that path is configured.
 |---|---|
 | Move | WASD |
 | Look | Mouse |
-| Jump | Space |
-| Sprint | Left Shift |
-| Crouch | C |
 | Spawn item | G |
 | Pick up / interact | F (hold) |
 | Throw held item | Left Mouse Button |
@@ -147,15 +144,8 @@ player never needs to restart the whole game to use Steam features again.
 
 ## Known issues
 
-- Connection timeout isn't implemented as its own explicit rejection reason. Netcode's own
-  built in approval timeout already handles it, but it shows up through Netcode's own
-  message rather than our friendly `DisconnectReason` text.
 - Stats and Achievements is a logging stub, which the brief allows, and isn't wired to real
   Steam stat names.
-- A client that drops mid session without being kicked comes back in like a fresh late
-  joiner rather than resuming the old session, so their position isn't restored. Identity
-  does partially carry over though. A reconnecting player's last chosen color is remembered
-  by `PlayerId` and reapplied automatically instead of resetting to the default.
 - The native Steam overlay (Shift+Tab, Invite) didn't reliably trigger while testing under
   the shared test AppID 480 (Spacewar), unless the build was first added to the local Steam
   client as a non-Steam game with `-transport steam` set as its launch option. This is a
